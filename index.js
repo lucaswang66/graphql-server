@@ -1,4 +1,7 @@
 const { ApolloServer, gql } = require('apollo-server');
+const { promises } = require('dns');
+
+const fs = require('fs');
 
 // A schema is a collection of type definitions (hence "typeDefs")
 // that together define the "shape" of queries that are executed against
@@ -10,7 +13,7 @@ const typeDefs = gql`
     type ContactForm {
         name: String!
         email: String!
-        message: String!
+        message: String
         timestamp: Int
     }
 
@@ -19,6 +22,14 @@ const typeDefs = gql`
     # case, the "books" query returns an array of zero or more Books (defined above).
     type Query {
         contactForms: [ContactForm]
+    }
+
+    type Mutation {
+        addContactForm(
+            name: String
+            email: String
+            message: String
+        ): ContactForm
     }
 `;
 
@@ -40,17 +51,34 @@ const contact_forms = [
 const resolvers = {
     Query: {
         contactForms: () => {
-            const fs = require('fs');
-
+            const forms = require('./forms');
+            return forms;
+        },
+    },
+    Mutation: {
+        addContactForm(parent, args, context, info) {
+            //Logging
             fs.appendFile(
-                'helloworld.txt',
-                `name: ${contact_forms[0].name}\n`,
-                function (err) {
+                'contact_forms.log',
+                `<<<<<new entry>>>>>\nname: ${args.name}\nemail: ${args.email}\nmessage: ${args.message}\n\n\n`,
+                (err) => {
                     if (err) return console.log(err);
-                    console.log('Hello World > helloworld.txt');
+                    console.log('mutation write success');
                 }
             );
-            return contact_forms;
+
+            // Retrieve data from json
+            let forms = require('./forms');
+            forms.push(args);
+            forms = JSON.stringify(forms);
+
+            // Update json
+            fs.writeFile('forms.json', forms, (err) => {
+                if (err) throw err;
+                console.log('The file has been saved!');
+            });
+
+            return args;
         },
     },
 };
