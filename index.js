@@ -1,4 +1,4 @@
-const { ApolloServer, gql } = require('apollo-server');
+const { ApolloServer, gql, UserInputError } = require('apollo-server');
 const { promises } = require('dns');
 
 const fs = require('fs');
@@ -13,7 +13,7 @@ const typeDefs = gql`
     type ContactForm {
         name: String!
         email: String!
-        message: String
+        message: String!
         timestamp: Int
     }
 
@@ -33,19 +33,6 @@ const typeDefs = gql`
     }
 `;
 
-const contact_forms = [
-    {
-        name: 'The Awakening',
-        email: 'Kate Chopin',
-        message: 'Kasdfasdfate Chopin',
-    },
-    {
-        name: 'City of Glass',
-        email: 'Paul Auster',
-        message: 'asdfasdfe',
-    },
-];
-
 // Resolvers define the technique for fetching the types defined in the
 // schema. This resolver retrieves books from the "books" array above.
 const resolvers = {
@@ -56,29 +43,62 @@ const resolvers = {
         },
     },
     Mutation: {
-        addContactForm(parent, args, context, info) {
-            //Logging
-            fs.appendFile(
-                'contact_forms.log',
-                `<<<<<new entry>>>>>\nname: ${args.name}\nemail: ${args.email}\nmessage: ${args.message}\n\n\n`,
-                (err) => {
-                    if (err) return console.log(err);
-                    console.log('mutation write success');
+        addContactForm: async (parent, args, context, info) => {
+            let { name, email, message } = args;
+            let errors = {};
+
+            try {
+                if (
+                    !email.trim().match(/^([\w.%+-]+)@([\w-]+\.)+([\w]{2,})$/i)
+                ) {
+                    errors.email = 'this is not a valid email address';
                 }
-            );
+                if (email.trim() === '') {
+                    errors.email = 'email must not be empty';
+                }
+                if (name.trim() === '') {
+                    errors.name = 'name must not be empty';
+                }
+                if (message.trim() === '') {
+                    errors.message = 'message must not be empty';
+                }
 
-            // Retrieve data from json
-            let forms = require('./forms');
-            forms.push(args);
-            forms = JSON.stringify(forms);
+                if (Object.keys(errors).length > 0) {
+                    throw errors;
+                }
 
-            // Update json
-            fs.writeFile('forms.json', forms, (err) => {
-                if (err) throw err;
-                console.log('The file has been saved!');
-            });
+                //Logging
+                fs.appendFile(
+                    'contact_forms.log',
+                    `<<<<<new entry>>>>>\nname: ${args.name}\nemail: ${args.email}\nmessage: ${args.message}\n\n\n`,
+                    (err) => {
+                        if (err) throw err;
+                        console.log('mutation write success');
+                    }
+                );
 
-            return args;
+                //logging to console
+                console.log(
+                    `\n\n<<<<<new entry>>>>>\nname: ${args.name}\nemail: ${args.email}\nmessage: ${args.message}\n\n`
+                );
+
+                // Retrieve data from json
+                let forms = require('./forms');
+                forms.push(args);
+                formsStringified = JSON.stringify(forms);
+
+                // Update json
+                fs.writeFile('forms.json', formsStringified, (err) => {
+                    if (err) throw err;
+                    console.log('The file has been saved!');
+                });
+
+                return args;
+            } catch (err) {
+                console.log(err);
+
+                throw new UserInputError('Bad inpout', { errors });
+            }
         },
     },
 };
