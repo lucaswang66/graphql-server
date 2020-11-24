@@ -1,5 +1,4 @@
 const { ApolloServer, gql, UserInputError } = require('apollo-server');
-
 const fs = require('fs');
 
 const typeDefs = gql`
@@ -7,7 +6,6 @@ const typeDefs = gql`
         name: String!
         email: String!
         message: String!
-        timestamp: Int
     }
 
     type Query {
@@ -30,12 +28,14 @@ const resolvers = {
             return forms;
         },
     },
+
     Mutation: {
         addContactForm: async (_, args) => {
             let { name, email, message } = args;
             let errors = {};
 
             try {
+                // Checking input error
                 if (
                     !email.trim().match(/^([\w.%+-]+)@([\w-]+\.)+([\w]{2,})$/i)
                 ) {
@@ -55,19 +55,19 @@ const resolvers = {
                     throw errors;
                 }
 
-                //Logging
+                // Logging to console
+                console.log(
+                    `\n\n<<<<<new entry>>>>>\nname: ${args.name}\nemail: ${args.email}\nmessage: ${args.message}\n\n`
+                );
+
+                // Logging
                 fs.appendFile(
                     'contact_forms.log',
                     `<<<<<new entry>>>>>\nname: ${args.name}\nemail: ${args.email}\nmessage: ${args.message}\n\n\n`,
                     (err) => {
                         if (err) throw err;
-                        console.log('mutation write success');
+                        console.log('log write success');
                     }
-                );
-
-                //logging to console
-                console.log(
-                    `\n\n<<<<<new entry>>>>>\nname: ${args.name}\nemail: ${args.email}\nmessage: ${args.message}\n\n`
                 );
 
                 // Retrieve data from json
@@ -84,18 +84,14 @@ const resolvers = {
                 return args;
             } catch (err) {
                 console.log(err);
-
                 throw new UserInputError('Bad inpout', { errors });
             }
         },
     },
 };
 
-// The ApolloServer constructor requires two parameters: your schema
-// definition and your set of resolvers.
 const server = new ApolloServer({ typeDefs, resolvers });
 
-// The `listen` method launches a web server.
 server.listen().then(({ url }) => {
     console.log(`🚀  Server ready at ${url}`);
 });
